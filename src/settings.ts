@@ -1,18 +1,18 @@
 import { App, PluginSettingTab, Setting } from 'obsidian';
-import MyPlugin from './main';
+import LatexDocument from './main.js';
 
-export interface MyPluginSettings {
-	mySetting: string;
+export interface LatexDocumentSettings {
+	noteClass: string;
 }
 
-export const DEFAULT_SETTINGS: MyPluginSettings = {
-	mySetting: 'default',
+export const DEFAULT_SETTINGS: LatexDocumentSettings = {
+	noteClass: 'math-article',
 };
 
-export class SampleSettingTab extends PluginSettingTab {
-	plugin: MyPlugin;
+export class LatexDocumentSettingTab extends PluginSettingTab {
+	plugin: LatexDocument;
 
-	constructor(app: App, plugin: MyPlugin) {
+	constructor(app: App, plugin: LatexDocument) {
 		super(app, plugin);
 		this.plugin = plugin;
 	}
@@ -28,9 +28,9 @@ export class SampleSettingTab extends PluginSettingTab {
 			.addText((text) =>
 				text
 					.setPlaceholder('Enter your secret')
-					.setValue(this.plugin.settings.mySetting)
+					.setValue(this.plugin.settings.noteClass)
 					.onChange(async (value) => {
-						this.plugin.settings.mySetting = value;
+						this.plugin.settings.noteClass = value;
 						await this.plugin.saveSettings();
 					}),
 			);
