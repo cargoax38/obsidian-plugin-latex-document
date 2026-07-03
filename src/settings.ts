@@ -23,11 +23,11 @@ export class LatexDocumentSettingTab extends PluginSettingTab {
 		containerEl.empty();
 
 		new Setting(containerEl)
-			.setName('Settings #1')
-			.setDesc("It's a secret")
+			.setName('Note cssclass')
+			.setDesc("Name the cssclass that LaTeX-like notes will follow.")
 			.addText((text) =>
 				text
-					.setPlaceholder('Enter your secret')
+					.setPlaceholder('cssclass property')
 					.setValue(this.plugin.settings.noteClass)
 					.onChange(async (value) => {
 						this.plugin.settings.noteClass = value;
