@@ -17,36 +17,43 @@ export default class LatexDocument extends Plugin {
 
 		this.addSettingTab(new LatexDocumentSettingTab(this.app, this));
 
-		this.app.workspace.on('quick-preview', () => {
-			console.log("test");
+		const numbers = new Map<string, number>();
+
+		this.registerMarkdownPostProcessor((element, ctx) => {
+			const file = this.app.vault.getFileByPath(ctx.sourcePath) as TFile;
+			this.app.fileManager.processFrontMatter(file, fn => {
+				if(fn.cssclasses && fn.cssclasses.contains(this.settings.noteClass)) {
+					element.querySelectorAll('p').forEach(p => {
+						const text = p.textContent?.trim() ?? '';
+
+						const tableMatch = text.match(/^\\tableofcontents$/);
+
+						if(tableMatch) {
+							numbers.set(ctx.sourcePath, 1);
+						}else {
+							const sectionMatch = text.match(/^\\section\{(.+)\}$/);
+
+							if(!sectionMatch || !sectionMatch[1]) return;
+
+							const h1 = activeDocument.createElement('h1');
+
+							console.log(ctx.sourcePath);
+							const i = numbers.get(ctx.sourcePath) || 0;
+							h1.textContent = i + ' ­ ­ ­' + sectionMatch[1];
+							p.replaceWith(h1);
+							numbers.set(ctx.sourcePath, i + 1);
+						}
+					});
+				}
+			});
 		})
-
-		this.app.workspace.on('file-open', () => {
-			const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
-			if(!activeView) return;
-
-			setTimeout(() => {
-				const container = activeView.containerEl.querySelector('.markdown-preview-view');
-				if(!container) return;
-
-				const codeBlock = container.querySelectorAll('code');
-
-				codeBlock.forEach((block) => {
-					if(block.textContent.contains('\\test')) {
-						const h1 = activeDocument.createElement('h1');
-						h1.textContent = 'Test';
-
-						block.parentElement?.replaceWith(h1);
-					}
-				});
-			}, 100);
-		});
 
 		this.addCommand({
 			id: 'latex-document-sec',
 			name: 'Sections seeker',
 			callback: () => {
-				//const activeFile = this.app.workspace.getActiveFile() as TFile;
+				const activeFile = this.app.workspace.getActiveFile() as TFile;
+				console.log(activeFile.name);
 
 				const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
 				if(!activeView) return;
@@ -57,13 +64,17 @@ export default class LatexDocument extends Plugin {
 
 					const codeBlock = container.querySelectorAll('code');
 
-					codeBlock.forEach((block) => {
-						if(block.textContent.contains('\\test')) {
-							const h1 = activeDocument.createElement('h1');
-							h1.textContent = 'Test';
+					codeBlock.forEach((p) => {
+						const text = p.textContent?.trim() ?? '';
 
-							block.parentElement?.replaceWith(h1);
-						}
+						const match = text.match(/^\\section\{(.+)\}$/);
+
+						if(!match || !match[1]) return;
+
+						const h1 = activeDocument.createElement('h1');
+
+						h1.textContent = ' ­ ­ ­' + match[1];
+						p.replaceWith(h1);
 					});
 				}, 100);
 
