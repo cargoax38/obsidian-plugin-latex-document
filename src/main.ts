@@ -8,6 +8,7 @@ import {
 	LatexDocumentSettings,
 	LatexDocumentSettingTab,
 } from './settings.js';
+import SectionNumber from './sectionNumber.js';
 
 export default class LatexDocument extends Plugin {
 	settings!: LatexDocumentSettings;
@@ -17,7 +18,99 @@ export default class LatexDocument extends Plugin {
 
 		this.addSettingTab(new LatexDocumentSettingTab(this.app, this));
 
-		const numbers = new Map<string, number>();
+		this.app.workspace.on('layout-change', async () => {
+			const view = this.app.workspace.getActiveViewOfType(MarkdownView);
+
+			if(view && view.getMode() == 'preview') {
+				const file = this.app.workspace.getActiveFile();
+				if(file) {
+					this.app.fileManager.processFrontMatter(file, async fn => {
+						if(fn.cssclasses && fn.cssclasses.contains(this.settings.noteClass)) {
+							let section: SectionNumber = new SectionNumber(3);
+							let counter: number = 0;
+
+							const content = await this.app.vault.read(file);
+							const lines = content.split('\n');
+
+							let tableLine = -1;
+							for(let i = 0; i < lines.length; i++) {
+								if(lines[i]?.startsWith('`\\tableofcontents')) {
+									tableLine = i;
+									break;
+								}
+							}
+
+							if(tableLine >= 0) {
+								const tableMatch = lines[tableLine]?.match(/^`\\tableofcontents\[(\d+)\]`$/);
+
+								if(tableMatch && tableMatch[1]) {
+									const k = +tableMatch[1] || 1;
+									lines.splice(tableLine + 1, 1);
+									for(let i = 0; i < k; i++) {
+										lines.splice(tableLine + 1, 1);
+									}
+								}
+							}
+
+							let tableContent: Array<string> = new Array();
+
+							for(let i = 0; i < lines.length; i++) {
+								const text = lines[i] as string;
+								const sectionMatch = text.match(/^`(\\|\\sub|\\subsub)section\{(.+)\}(|\[\d+-\d+-\d+\])`$/);
+
+								if(sectionMatch && sectionMatch[1]) {
+									const depth = (sectionMatch[1].length - 1) / 3;
+
+									if(section.safeNext(depth)) {
+										section.next(depth);
+										counter++;
+
+										const newSection = '`' + sectionMatch[1] + 'section\{' + sectionMatch[2] + '\}\[' + section.toString() + '\]`';
+
+										if(lines[i] != newSection) lines[i] = newSection;
+
+										const mark = '^part' + section.toString();
+										if(lines[i + 2]) {
+											const partMatch = lines[i + 2]?.match(/^\^part(\d+-\d+-\d+)$/)
+
+											if(partMatch && partMatch[1]) {
+												if(partMatch[1] != section.toString()) {
+													lines[i + 2] = mark;
+												}
+											}else {
+												lines.splice(i + 1, 0, '\n' + mark);
+											}
+										}else {
+											lines.splice(i + 1, 0, '\n' + mark);
+										}
+
+										if(tableLine >= 0) {
+											tableContent.push(section.toString().substring(0, 1 + depth * 2) + ' ­ ­ ­' + sectionMatch[2]);
+											tableContent.push(mark);
+										}
+									}
+								}
+							}
+
+							if(tableLine >= 0) {
+								if(counter != 0) lines[tableLine] = '`\\tableofcontents[' + counter + ']`';
+								else lines[tableLine] = '`\\tableofcontents`';
+
+								let i = tableContent.length - 1;
+								while(i > 0) {
+									lines.splice(tableLine + 1, 0, '<span class="table-of-contents">[' + tableContent[i - 1] + '](' + file.name + '#' + tableContent[i] + ')</span>');
+									i -= 2;
+								}
+
+								if(counter != 0) lines.splice(tableLine + 1, 0, '');
+							}
+
+							await this.app.vault.modify(file, lines.join('\n'));
+						}
+					});
+				}
+			}
+		});
 
 		this.registerMarkdownPostProcessor((element, ctx) => {
 			const file = this.app.vault.getFileByPath(ctx.sourcePath) as TFile;
@@ -27,82 +120,36 @@ export default class LatexDocument extends Plugin {
 			this.app.fileManager.processFrontMatter(file, fn => {
 				if(fn.cssclasses && fn.cssclasses.contains(this.settings.noteClass)) {
 					element.querySelectorAll('code').forEach(async p => {
+						if(!ctx.getSectionInfo(element)) return;
 						const text = p.textContent?.trim() ?? '';
 
-						const tableMatch = text.match(/^\\tableofcontents$/);
+						//if(p.closest('.markdown-embed-content') && currentFile.path == ctx.sourcePath) {
+						//	return;
+						//}
 
-						console.log(p);
-						if(p.closest('.markdown-embed-content') && currentFile.path == ctx.sourcePath) {
+						const tableMatch = text.match(/^\\tableofcontents\[\d+\]$/);
+						if(tableMatch) {
+							const header = activeDocument.createElement('h1');
+							header.textContent = 'Table des matières';
+							p.replaceWith(header);
+
 							return;
 						}
 
-						if(tableMatch) {
-							numbers.set(ctx.sourcePath, 1);
-						}else {
-							const sectionMatch = text.match(/^\\section\{(.+)\}$/);
+						let tab = ['h1', 'h2', 'h3'];
 
-							if(sectionMatch && sectionMatch[1]) { // It's a section `\section{text}`
-								const i = numbers.get(ctx.sourcePath) || 0;
+						const sectionMatch = text.match(/^(\\|\\sub|\\subsub)section\{(.+)\}\[(\d+-\d+-\d+)\]$/);
+						if(sectionMatch && sectionMatch[1] && sectionMatch[2] && sectionMatch[3]) {
+							const depth = (sectionMatch[1].length - 1) / 3;
 
-								if(ctx.getSectionInfo(element)) {
-									const content = await this.app.vault.read(file);
-									const lines = content.split('\n');
-
-									if(ctx == null || element == null || ctx.getSectionInfo(element) == null) return;
-									const line = ctx.getSectionInfo(element)?.lineStart;
-
-									if(line == null) return;
-
-									if((lines[line + 2] === undefined || !lines[line + 2].contains("^part")) && file == currentFile) {
-										const h1 = activeDocument.createElement('h1');
-										h1.textContent = i + ' ­ ­ ­' + sectionMatch[1];
-										p.replaceWith(h1);
-
-										lines.splice(line + 1, 0, '');
-										lines.splice(line + 1, 0, '^part' + i + '');
-										lines.splice(line + 1, 0, '');
-
-										console.log('adds');
-										await this.app.vault.modify(file, lines.join('\n'));
-									}else {
-										const sectionNumber = lines[line + 2].match(/^\^part(\d+)$/);
-
-										if(sectionNumber && sectionNumber[1]) {
-											const h1 = activeDocument.createElement('h1');
-											h1.textContent = sectionNumber[1] + ' ­ ­ ­' + sectionMatch[1];
-											p.replaceWith(h1);
-										}
-									}
-								}
-								numbers.set(ctx.sourcePath, i + 1);
-
-								/*if(ctx.getSectionInfo(element) != null) {
-									const line = ctx.getSectionInfo(element).lineEnd;
-
-									if(this.app.workspace.activeEditor) {
-										const editor = this.app.workspace.activeEditor.editor;
-										if(editor != undefined) {
-
-											editor.replaceRange("some text", {line: 8 + 1, ch: 0});
-										}
-									}
-								}*/
-							}
+							const header = activeDocument.createElement(tab[depth] || 'h1');
+							header.textContent = sectionMatch[3].substring(0, 1 + depth * 2) + ' ­ ­ ­' + sectionMatch[2];
+							p.replaceWith(header);
 						}
 					});
 				}
 			});
 		});
-
-		/*this.addCommand({
-			id: 'insert-text',
-			name: 'Insert text',
-			editorCallback: (editor, view) => {
-				activeDocument.querySelectorAll('code').forEach(p => {
-					editor.replaceRange("some text", {line: , ch: 0});
-				}
-			}
-		});*/
 	}
 
 	onunload() {}

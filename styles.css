@@ -1,8 +1,38 @@
-/*
+.table-of-contents {
+    overflow: hidden;
+    white-space: nowrap;
+    display: flex;
 
-This CSS file will be included with your plugin, and
-available in the app when your plugin is enabled.
+    .internal-link {
+        text-decoration: none !important;
+        background-color: var(--background-primary);
+        position: relative;
+        z-index: 2;
+    }
 
-If your plugin does not need CSS, delete this file.
+    align-items: end;
+}
 
-*/
+.markdown-embed .table-of-contents .internal-link {
+    background-color: var(--embed-background);
+}
+
+.title1 {
+    text-indent: 2em;
+}
+
+.title2 {
+    text-indent: 4em;
+}
+
+.table-of-contents::after {
+    position: sticky;
+    right: 0px;
+    content: "................................................";
+    color: var(--link-color);
+    letter-spacing: 0.7em;
+}
+
+.el-p br {
+   display: none;
+}
