@@ -1,12 +1,14 @@
-import { App, PluginSettingTab, Setting } from 'obsidian';
+import { App, PluginSettingTab, Setting, SettingTab, SliderComponent } from 'obsidian';
 import LatexDocument from './main.js';
 
 export interface LatexDocumentSettings {
-	noteClass: string;
+	noteClass: string,
+	displayFullSection: boolean;
 }
 
 export const DEFAULT_SETTINGS: LatexDocumentSettings = {
 	noteClass: 'math-article',
+	displayFullSection: true
 };
 
 export class LatexDocumentSettingTab extends PluginSettingTab {
@@ -33,6 +35,27 @@ export class LatexDocumentSettingTab extends PluginSettingTab {
 						this.plugin.settings.noteClass = value;
 						await this.plugin.saveSettings();
 					}),
-			);
+			)
+		
+		new Setting(containerEl)
+			.setName('Render full section')
+			.setDesc('Display the whole section number, such as 1.1.7 or just the local number 7')
+			.addToggle((toggle) => {
+				toggle
+					.setValue(this.plugin.settings.displayFullSection)
+					.onChange(async (value) => {
+						this.plugin.settings.displayFullSection = value;
+						await this.plugin.saveSettings();
+					});
+			});
+
+		/*new Setting(containerEl)
+			.setName('Render section')
+			.setDesc('How to render the section numbers')
+			.addDropdown((component) => {
+				component.addOption('0', 'Number');
+				component.addOption('1', 'Roman');
+				component.addOption('2', 'Alphabet');
+			})*/
 	}
 }
