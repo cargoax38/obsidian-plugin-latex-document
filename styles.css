@@ -1,3 +1,5 @@
+/* table of contents */
+
 .entry {
     display: grid;
     grid-template-columns: auto max-content;
@@ -22,4 +24,32 @@
     content: " . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . ";
     letter-spacing: 0.3em;
     text-align: right;
+}
+
+.chapter.depth-h2 {
+    margin-left: 1em;
+}
+
+.chapter.depth-h3 {
+    margin-left: 2em;
+}
+
+/* title */
+
+.custom-title {
+    display: grid;
+    position: relative;
+    grid-template-columns: max-content;
+    grid-template-areas: "section name";
+    gap: 1em;
+}
+
+.custom-number {
+    position: relative;
+    grid-area: section;
+}
+
+.custom-section {
+    position: relative;
+    grid-area: name;
 }

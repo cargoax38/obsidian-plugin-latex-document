@@ -46,4 +46,21 @@ export default class Utils {
         return resultat;
     }
 
+    static writeSectionNumber(sectionNumbers: Array<string>, renderSections: Array<string>, depth: number) : string {
+        switch(renderSections[depth]) {
+            case '0': {
+                return sectionNumbers[depth]?.toString() || '';
+            }
+            case '1': {
+                return Utils.decimalToRoman(sectionNumbers[depth]?.toString() || '');
+            }
+            case '2': {
+                return Utils.decimalToAlphabet(sectionNumbers[depth]?.toString() || '', false);
+            }
+            default : {
+                return '';
+            }
+        }
+    }
+
 }

@@ -13,7 +13,6 @@ import Utils from './utils.js';
 
 export default class LatexDocument extends Plugin {
 	settings!: LatexDocumentSettings;
-	params!: Array<Number>;
 	tab!: Array<string>;
 
 	async onload() {
@@ -27,11 +26,6 @@ export default class LatexDocument extends Plugin {
 			if(view && view.getMode() == 'preview') {
 				const file = this.app.workspace.getActiveFile();
 				if(file) {
-					// if parametre section a change : on peut le detecter en parcourant chaque p et detecter si l'expression contient des chiffres avec des '.'. Dans ce cas-la changer
-					activeDocument.querySelectorAll('.custom-title').forEach(p => {
-						// Les vérifications de changement du paramètre d'affichage des sections
-					});
-
 					this.app.fileManager.processFrontMatter(file, async fn => {
 						if(fn.cssclasses && fn.cssclasses.contains(this.settings.noteClass)) {
 							let section: SectionNumber = new SectionNumber(3);
@@ -61,7 +55,7 @@ export default class LatexDocument extends Plugin {
 									if(section.safeNext(depth)) {
 										section.next(depth);
 
-										const newSection = '`' + sectionMatch[1] + 'section\{' + sectionMatch[2] + '\}\[' + section.toString() + '\]`';
+										const newSection = '`' + sectionMatch[1] + 'section{' + sectionMatch[2] + '}[' + section.toString() + ']`';
 
 										if(lines[i] != newSection) lines[i] = newSection;
 
@@ -81,7 +75,8 @@ export default class LatexDocument extends Plugin {
 										}
 
 										if(tableLine >= 0) {
-											tableContent.push(this.tab[depth] + this.sectionNumberDisplay(section.toString(), depth) + ' ­ ­ ­' + sectionMatch[2]);
+											tableContent.push('depth-' + this.tab[depth] || 'depth-h1');
+											tableContent.push(this.sectionNumberDisplay(section.toString(), depth) + ' ­ ­ ­' + sectionMatch[2]);
 											tableContent.push(mark);
 										}
 									}
@@ -95,8 +90,8 @@ export default class LatexDocument extends Plugin {
 
 								let i = tableContent.length - 1;
 								while(i > 0) {
-									tableOfContents = '<span class="entry"><span class="chapter">[' + tableContent[i - 1] + '](' + file.name + '#' + tableContent[i] + ')</span></span>' + tableOfContents
-									i -= 2;
+									tableOfContents = '<span class="entry"><span class="chapter ' + tableContent[i - 2] + '">[' + tableContent[i - 1] + '](' + file.name + '#' + tableContent[i] + ')</span></span>' + tableOfContents
+									i -= 3;
 								}
 								tableOfContents = '\n<span>' + tableOfContents + '</span>\n'
 
@@ -124,22 +119,31 @@ export default class LatexDocument extends Plugin {
 						const tableMatch = text.match(/^\\tableofcontents$/);
 						if(tableMatch) {
 							const header = activeDocument.createElement('h1');
-							header.textContent = 'Table des matières';
+							header.textContent = this.settings.tableOfContents;
 							p.replaceWith(header);
 
 							return;
 						}
 
-						let tab = ['h1', 'h2', 'h3'];
-
 						const sectionMatch = text.match(/^(\\|\\sub|\\subsub)section\{(.+)\}\[(\d+-\d+-\d+)\]$/);
 						if(sectionMatch && sectionMatch[1] && sectionMatch[2] && sectionMatch[3]) {
 							const depth = (sectionMatch[1].length - 1) / 3;
 
-							const header = activeDocument.createElement(tab[depth] || 'h1');
-							header.addClass('custom-title');
-							header.textContent = this.sectionNumberDisplay(sectionMatch[3], depth) + ' ­ ­ ­' + sectionMatch[2];
-							p.replaceWith(header);
+							const title = activeDocument.createElement(this.tab[depth] || 'h1');
+
+							const header = activeDocument.createEl('span');
+							const headerNumber = activeDocument.createEl('span');
+
+							title.addClass('custom-title');
+							header.addClass('custom-section');
+							headerNumber.addClass('custom-number');
+
+							headerNumber.textContent = this.sectionNumberDisplay(sectionMatch[3], depth)
+							header.textContent = sectionMatch[2];
+
+							title.appendChild(headerNumber);
+							title.appendChild(header);
+							p.replaceWith(title);
 						}
 					});
 				}
@@ -155,37 +159,9 @@ export default class LatexDocument extends Plugin {
 		if(this.settings.displayFullSection) {
 			for(let i = 0; i < depth + 1; i++) {
 				if(i > 0) result = result + '.';
-				switch(this.params[i]) {
-					case 0: {
-						result = result + sectionNumbers[i];
-						break;
-					}
-					case 1: {
-						result = result + Utils.decimalToRoman('' + sectionNumbers[i]);
-						break;
-					}
-					case 2: {
-						result = result + Utils.decimalToAlphabet('' + sectionNumbers[i], false);
-						break;
-					}
-				}
+				result = result + Utils.writeSectionNumber(sectionNumbers, this.settings.renderSections, i);
 			}
-		}else {
-			switch(this.params[depth]) {
-				case 0: {
-					result = result + sectionNumbers[depth];
-					break;
-				}
-				case 1: {
-					result = result + Utils.decimalToRoman('' + sectionNumbers[depth]);
-					break;
-				}
-				case 2: {
-					result = result + Utils.decimalToAlphabet('' + sectionNumbers[depth], false);
-					break;
-				}
-			}
-		}
+		}else result = Utils.writeSectionNumber(sectionNumbers, this.settings.renderSections, depth);
 
 		return result;
 	}
@@ -199,8 +175,7 @@ export default class LatexDocument extends Plugin {
 			(await this.loadData()) as Partial<LatexDocumentSettings>,
 		);
 
-		this.params = [1, 0, 2];
-		this.tab = ['', '­ ­ ­ ­', '­ ­ ­ ­ ­ ­ ­ ­'];
+		this.tab = ['h1', 'h2', 'h3'];
 	}
 
 	async saveSettings() {
