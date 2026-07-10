@@ -2,7 +2,7 @@
 	"id": "latex-document-plugin",
 	"name": "Latex Document Plugin",
 	"version": "1.0.0",
-	"minAppVersion": "1.4.4",
+	"minAppVersion": "1.11.0",
 	"description": "Implements tools to create LaTeX-like notes.",
 	"author": "Enzo SANFILIPPO",
 	"authorUrl": "https://github.com/cargoax38",

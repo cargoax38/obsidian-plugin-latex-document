@@ -1,4 +1,4 @@
-import { App, PluginSettingTab, Setting, SettingGroup, SettingTab, SliderComponent, TextComponent } from 'obsidian';
+import { App, PluginSettingTab, SettingGroup } from 'obsidian';
 import LatexDocument from './main.js';
 
 export interface LatexDocumentSettings {
@@ -34,7 +34,7 @@ export class LatexDocumentSettingTab extends PluginSettingTab {
 				cb.setDesc('Name the cssclass that LaTeX-like notes will follow.');
 				cb.addText((text) => {
 					text
-						.setPlaceholder('cssclass property')
+						.setPlaceholder('Cssclass property')
 						.setValue(this.plugin.settings.noteClass)
 						.onChange(async (value) => {
 							this.plugin.settings.noteClass = value;

@@ -5,7 +5,7 @@ export default class SectionNumber {
 
     constructor(n = 3) {
         this.n = n;
-        this.a = Array(n).fill(0);
+        this.a = Array(n).fill(0) as Array<number>;
     }
 
     asString(source: string) {

@@ -26,7 +26,7 @@ export default class LatexDocument extends Plugin {
 			if(view && view.getMode() == 'preview') {
 				const file = this.app.workspace.getActiveFile();
 				if(file) {
-					this.app.fileManager.processFrontMatter(file, async fn => {
+					this.app.fileManager.processFrontMatter(file, async (fn) => {
 						if(fn.cssclasses && fn.cssclasses.contains(this.settings.noteClass)) {
 							let section: SectionNumber = new SectionNumber(3);
 
@@ -43,7 +43,7 @@ export default class LatexDocument extends Plugin {
 								}
 							}
 
-							let tableContent: Array<string> = new Array();
+							let tableContent: Array<string> = [];
 
 							for(let i = 0; i < lines.length; i++) {
 								const text = lines[i] as string;
@@ -106,11 +106,11 @@ export default class LatexDocument extends Plugin {
 		});
 
 		this.registerMarkdownPostProcessor((element, ctx) => {
-			const file = this.app.vault.getFileByPath(ctx.sourcePath) as TFile; // la note associé au texte. Donc pour les liens embed, c'est le fichier source.
+			const file = this.app.vault.getFileByPath(ctx.sourcePath) // la note associé au texte. Donc pour les liens embed, c'est le fichier source.
 			//const currentFile = this.app.workspace.getActiveFile() as TFile; // Le fichier actuellement ouvert (ou non si c'est la vue graphique par exemple).
 
-			if (!file) return;
-			this.app.fileManager.processFrontMatter(file, fn => {
+			if (!file || !(file instanceof TFile)) return;
+			this.app.fileManager.processFrontMatter(file, async fn => {
 				if(fn.cssclasses && fn.cssclasses.contains(this.settings.noteClass)) {
 					element.querySelectorAll('code').forEach(async p => {
 						if(!ctx.getSectionInfo(element)) return;
@@ -118,7 +118,7 @@ export default class LatexDocument extends Plugin {
 
 						const tableMatch = text.match(/^\\tableofcontents$/);
 						if(tableMatch) {
-							const header = activeDocument.createElement('h1');
+							const header = activeDocument.createEl('h1');
 							header.textContent = this.settings.tableOfContents;
 							p.replaceWith(header);
 
@@ -129,10 +129,10 @@ export default class LatexDocument extends Plugin {
 						if(sectionMatch && sectionMatch[1] && sectionMatch[2] && sectionMatch[3]) {
 							const depth = (sectionMatch[1].length - 1) / 3;
 
-							const title = activeDocument.createElement(this.tab[depth] || 'h1');
+							const title = await activeDocument.createEl('h1', this.tab[depth]);
 
-							const header = activeDocument.createEl('span');
-							const headerNumber = activeDocument.createEl('span');
+							const header = await activeDocument.createSpan()
+							const headerNumber = await activeDocument.createSpan()
 
 							title.addClass('custom-title');
 							header.addClass('custom-section');
