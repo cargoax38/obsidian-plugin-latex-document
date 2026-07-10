@@ -11,6 +11,10 @@ import {
 import SectionNumber from './sectionNumber.js';
 import Utils from './utils.js';
 
+interface NoteFrontmatter {
+    cssclasses?: string[];
+}
+
 export default class LatexDocument extends Plugin {
 	settings!: LatexDocumentSettings;
 	tab!: Array<string>;
@@ -26,81 +30,82 @@ export default class LatexDocument extends Plugin {
 			if(view && view.getMode() == 'preview') {
 				const file = this.app.workspace.getActiveFile();
 				if(file) {
-					this.app.fileManager.processFrontMatter(file, async (fn) => {
-						if(fn.cssclasses && fn.cssclasses.contains(this.settings.noteClass)) {
-							let section: SectionNumber = new SectionNumber(3);
+					const fm = this.app.metadataCache.getFileCache(file);
+					const frontmatter = fm?.frontmatter as NoteFrontmatter | undefined;
 
-							const content = await this.app.vault.read(file);
-							const lines = content.split('\n');
+					if(frontmatter?.cssclasses && frontmatter.cssclasses.contains(this.settings.noteClass)) {
+						let section: SectionNumber = new SectionNumber(3);
 
-							let tableLine = lines.indexOf('`\\tableofcontents`');
+						const content = await this.app.vault.read(file);
+						const lines = content.split('\n');
 
-							if(tableLine >= 0) {
-								if(lines[tableLine + 2] && lines[tableLine + 2]!.startsWith('<span>')) {
-									lines.splice(tableLine + 1, 3);
-								}else {
-									lines.splice(tableLine + 1, 1);
-								}
+						let tableLine = lines.indexOf('`\\tableofcontents`');
+
+						if(tableLine >= 0) {
+							if(lines[tableLine + 2] && lines[tableLine + 2]!.startsWith('<span>')) {
+								lines.splice(tableLine + 1, 3);
+							}else {
+								lines.splice(tableLine + 1, 1);
 							}
+						}
 
-							let tableContent: Array<string> = [];
+						let tableContent: Array<string> = [];
 
-							for(let i = 0; i < lines.length; i++) {
-								const text = lines[i] as string;
-								const sectionMatch = text.match(/^`(\\|\\sub|\\subsub)section\{(.+)\}(|\[\d+-\d+-\d+\])`$/);
+						for(let i = 0; i < lines.length; i++) {
+							const text = lines[i] as string;
+							const sectionMatch = text.match(/^`(\\|\\sub|\\subsub)section\{(.+)\}(|\[\d+-\d+-\d+\])`$/);
 
-								if(sectionMatch && sectionMatch[1]) {
-									const depth = (sectionMatch[1].length - 1) / 3;
+							if(sectionMatch && sectionMatch[1]) {
+								const depth = (sectionMatch[1].length - 1) / 3;
 
-									if(section.safeNext(depth)) {
-										section.next(depth);
+								if(section.safeNext(depth)) {
+									section.next(depth);
 
-										const newSection = '`' + sectionMatch[1] + 'section{' + sectionMatch[2] + '}[' + section.toString() + ']`';
+									const newSection = '`' + sectionMatch[1] + 'section{' + sectionMatch[2] + '}[' + section.toString() + ']`';
 
-										if(lines[i] != newSection) lines[i] = newSection;
+									if(lines[i] != newSection) lines[i] = newSection;
 
-										const mark = '^part' + section.toString();
-										if(lines[i + 2]) {
-											const partMatch = lines[i + 2]?.match(/^\^part(\d+-\d+-\d+)$/)
+									const mark = '^part' + section.toString();
+									if(lines[i + 2]) {
+										const partMatch = lines[i + 2]?.match(/^\^part(\d+-\d+-\d+)$/)
 
-											if(partMatch && partMatch[1]) {
-												if(partMatch[1] != section.toString()) {
-													lines[i + 2] = mark;
-												}
-											}else {
-												lines.splice(i + 1, 0, '\n' + mark);
+										if(partMatch && partMatch[1]) {
+											if(partMatch[1] != section.toString()) {
+												lines[i + 2] = mark;
 											}
 										}else {
 											lines.splice(i + 1, 0, '\n' + mark);
 										}
+									}else {
+										lines.splice(i + 1, 0, '\n' + mark);
+									}
 
-										if(tableLine >= 0) {
-											tableContent.push('depth-' + this.tab[depth] || 'depth-h1');
-											tableContent.push(this.sectionNumberDisplay(section.toString(), depth) + ' ­ ­ ­' + sectionMatch[2]);
-											tableContent.push(mark);
-										}
+									if(tableLine >= 0) {
+										tableContent.push('depth-' + this.tab[depth] || 'depth-h1');
+										tableContent.push(this.sectionNumberDisplay(section.toString(), depth) + ' ­ ­ ­' + sectionMatch[2]);
+										tableContent.push(mark);
 									}
 								}
 							}
-
-							if(tableLine >= 0 && tableContent.length > 0) {
-								lines[tableLine] = '`\\tableofcontents`';
-
-								let tableOfContents = '';
-
-								let i = tableContent.length - 1;
-								while(i > 0) {
-									tableOfContents = '<span class="entry"><span class="chapter ' + tableContent[i - 2] + '">[' + tableContent[i - 1] + '](' + file.name + '#' + tableContent[i] + ')</span></span>' + tableOfContents
-									i -= 3;
-								}
-								tableOfContents = '\n<span>' + tableOfContents + '</span>\n'
-
-								lines.splice(tableLine + 1, 0, tableOfContents);
-							}
-
-							await this.app.vault.modify(file, lines.join('\n'));
 						}
-					});
+
+						if(tableLine >= 0 && tableContent.length > 0) {
+							lines[tableLine] = '`\\tableofcontents`';
+
+							let tableOfContents = '';
+
+							let i = tableContent.length - 1;
+							while(i > 0) {
+								tableOfContents = '<span class="entry"><span class="chapter ' + tableContent[i - 2] + '">[' + tableContent[i - 1] + '](' + file.name + '#' + tableContent[i] + ')</span></span>' + tableOfContents
+								i -= 3;
+							}
+							tableOfContents = '\n<span>' + tableOfContents + '</span>\n'
+
+							lines.splice(tableLine + 1, 0, tableOfContents);
+						}
+
+						await this.app.vault.modify(file, lines.join('\n'));
+					}
 				}
 			}
 		});
@@ -110,44 +115,46 @@ export default class LatexDocument extends Plugin {
 			//const currentFile = this.app.workspace.getActiveFile() as TFile; // Le fichier actuellement ouvert (ou non si c'est la vue graphique par exemple).
 
 			if (!file || !(file instanceof TFile)) return;
-			this.app.fileManager.processFrontMatter(file, async fn => {
-				if(fn.cssclasses && fn.cssclasses.contains(this.settings.noteClass)) {
-					element.querySelectorAll('code').forEach(async p => {
-						if(!ctx.getSectionInfo(element)) return;
-						const text = p.textContent?.trim() ?? '';
+			
+			const fm = this.app.metadataCache.getFileCache(file);
+			const frontmatter = fm?.frontmatter as NoteFrontmatter | undefined;
 
-						const tableMatch = text.match(/^\\tableofcontents$/);
-						if(tableMatch) {
-							const header = activeDocument.createEl('h1');
-							header.textContent = this.settings.tableOfContents;
-							p.replaceWith(header);
+			if(frontmatter?.cssclasses && frontmatter.cssclasses.contains(this.settings.noteClass)) {
+				element.querySelectorAll('code').forEach(p => {
+					if(!ctx.getSectionInfo(element)) return;
+					const text = p.textContent?.trim() ?? '';
 
-							return;
-						}
+					const tableMatch = text.match(/^\\tableofcontents$/);
+					if(tableMatch) {
+						const header = p.createEl('h1');
+						header.textContent = this.settings.tableOfContents;
+						p.replaceWith(header);
 
-						const sectionMatch = text.match(/^(\\|\\sub|\\subsub)section\{(.+)\}\[(\d+-\d+-\d+)\]$/);
-						if(sectionMatch && sectionMatch[1] && sectionMatch[2] && sectionMatch[3]) {
-							const depth = (sectionMatch[1].length - 1) / 3;
+						return;
+					}
 
-							const title = await activeDocument.createEl('h1', this.tab[depth]);
+					const sectionMatch = text.match(/^(\\|\\sub|\\subsub)section\{(.+)\}\[(\d+-\d+-\d+)\]$/);
+					if(sectionMatch && sectionMatch[1] && sectionMatch[2] && sectionMatch[3]) {
+						const depth = (sectionMatch[1].length - 1) / 3;
 
-							const header = await activeDocument.createSpan()
-							const headerNumber = await activeDocument.createSpan()
+						const title = p.createEl('h1', this.tab[depth]);
 
-							title.addClass('custom-title');
-							header.addClass('custom-section');
-							headerNumber.addClass('custom-number');
+						const header = title.createSpan();
+						const headerNumber = title.createSpan();
 
-							headerNumber.textContent = this.sectionNumberDisplay(sectionMatch[3], depth)
-							header.textContent = sectionMatch[2];
+						title.addClass('custom-title');
+						header.addClass('custom-section');
+						headerNumber.addClass('custom-number');
 
-							title.appendChild(headerNumber);
-							title.appendChild(header);
-							p.replaceWith(title);
-						}
-					});
-				}
-			});
+						headerNumber.textContent = this.sectionNumberDisplay(sectionMatch[3], depth)
+						header.textContent = sectionMatch[2];
+
+						title.appendChild(headerNumber);
+						title.appendChild(header);
+						p.replaceWith(title);
+					}
+				});
+			}
 		});
 	}
 

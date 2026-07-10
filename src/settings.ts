@@ -23,6 +23,13 @@ export class LatexDocumentSettingTab extends PluginSettingTab {
 		this.plugin = plugin;
 	}
 
+	getSettingDefinitions() {
+		return [{
+			name: 'Support',
+			desc: 'This version (higher than 1.13.0) is not yet supported',
+		}];
+	}
+
 	display(): void {
 		const { containerEl } = this;
 
