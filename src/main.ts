@@ -137,7 +137,7 @@ export default class LatexDocument extends Plugin {
 					if(sectionMatch && sectionMatch[1] && sectionMatch[2] && sectionMatch[3]) {
 						const depth = (sectionMatch[1].length - 1) / 3;
 
-						const title = p.createEl('h1', this.tab[depth]);
+						const title = p.createEl(this.tab[depth] as keyof HTMLElementTagNameMap || 'h1');
 
 						const header = title.createSpan();
 						const headerNumber = title.createSpan();
